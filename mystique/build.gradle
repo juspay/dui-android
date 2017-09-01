@@ -179,7 +179,7 @@ tasks.create(name: "s3Uploader") << {
         println("Preparing e-mail....")
         msg.setContent(multiPart) ;
         msg.setSubject("DUI version updated to ${duiVersion}");
-        msg.setFrom(new InternetAddress("kiran.puppala@juspay.in")) ;
+        msg.setFrom(new InternetAddress("no-reply@juspay.in")) ;
         msg.setReplyTo(new InternetAddress("dui@juspay.in"))
         msg.addRecipient(MimeMessage.RecipientType.TO, new InternetAddress("dui@juspay.in")) ;
         println("Sending mail for version: ${duiVersion}")
@@ -194,14 +194,14 @@ tasks.create(name: "s3Uploader") << {
         AmazonS3 s3 = new AmazonS3Client(awsCreds)
         TransferManager tx = new TransferManager(awsCreds)
         // push maven artifacts
-        def upload = tx.uploadDirectory("dui-release", "dui", new File("/tmp/_mvn_dui"), true)
+        def upload = tx.uploadDirectory("release", "dui", new File("/tmp/_mvn_dui"), true)
         upload.waitForCompletion()
         tx.shutdownNow()
 
         // push eclipse style build
         def artifact = new File("build/outputs/aar/mystique-release-${project.pomVersion}.tar.gz")
         def key = "stable/${artifact.name}"
-        def putObjectReq = new PutObjectRequest("dui-release", key, artifact)
+        def putObjectReq = new PutObjectRequest("release", key, artifact)
         putObjectReq.setCannedAcl(CannedAccessControlList.PublicRead)
         s3.putObject(putObjectReq)
     }
