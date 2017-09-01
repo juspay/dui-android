@@ -23,6 +23,7 @@
 * along with this program. If not, see <https://www.gnu.org/licenses/agpl.html>.
 */
 
+
 import com.amazonaws.auth.AWSCredentials
 import com.amazonaws.auth.PropertiesFileCredentialsProvider
 import com.amazonaws.services.s3.AmazonS3
@@ -31,13 +32,18 @@ import com.amazonaws.services.s3.model.CannedAccessControlList
 import com.amazonaws.services.s3.model.PutObjectRequest
 import com.amazonaws.services.s3.transfer.TransferManager
 
+import javax.mail.Multipart
+import javax.mail.PasswordAuthentication
+import javax.mail.Session
+import javax.mail.Transport
+
 buildscript {
     repositories {
         mavenCentral()
         jcenter()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:2.2.3'
+        classpath 'com.android.tools.build:gradle:2.3.3'
         classpath 'com.eriwen:gradle-js-plugin:1.9.0'
         classpath 'com.amazonaws:aws-java-sdk:1.7.3'
         classpath 'javax.activation:activation:1.1'
@@ -66,11 +72,13 @@ def buildVersion = duiConfigVars?.find{it.@name.text() == "build_version"}?.text
 
 
 android {
-    compileSdkVersion 21
-    buildToolsVersion "21.1.2"
+    compileSdkVersion 25
+    buildToolsVersion '25.0.3'
+    useLibrary  'org.apache.http.legacy'
+
 
     defaultConfig {
-        minSdkVersion 8
+        minSdkVersion 11
         targetSdkVersion 21
     }
     buildTypes {
@@ -82,7 +90,7 @@ android {
 }
 
 dependencies {
-    compile fileTree(dir: 'libs', include: ['*.jar'])
+    compile fileTree(include: ['*.jar'], dir: 'libs')
 }
 
 tasks.create(name: 'mavenPrep') << {
@@ -103,9 +111,10 @@ uploadArchives {
     }
 }
 
-import javax.mail.internet.* ;
-import javax.mail.* ;
-import javax.activation.*;
+import javax.mail.internet.InternetAddress
+import javax.mail.internet.MimeBodyPart
+import javax.mail.internet.MimeMessage
+import javax.mail.internet.MimeMultipart;
 
 // upload all the build artifacts to S3.
 tasks.create(name: "s3Uploader") << {
@@ -173,7 +182,6 @@ tasks.create(name: "s3Uploader") << {
         msg.setFrom(new InternetAddress("no-reply@juspay.in")) ;
         msg.setReplyTo(new InternetAddress("dui@juspay.in"))
         msg.addRecipient(MimeMessage.RecipientType.TO, new InternetAddress("dui@juspay.in")) ;
-
         println("Sending mail for version: ${duiVersion}")
         println("Please be patient...")
         Transport.send(msg)
