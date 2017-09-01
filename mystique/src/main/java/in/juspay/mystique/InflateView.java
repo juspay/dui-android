@@ -1,15 +1,15 @@
 /*
 * Copyright (c) 2012-2017 "JUSPAY Technologies"
 * JUSPAY Technologies Pvt. Ltd. [https://www.juspay.in]
-* 
+*
 * This file is part of JUSPAY Platform.
-* 
+*
 * JUSPAY Platform is free software: you can redistribute it and/or modify
 * it for only educational purposes under the terms of the GNU Affero General
 * Public License (GNU AGPL) as published by the Free Software Foundation,
 * either version 3 of the License, or (at your option) any later version.
 * For Enterprise/Commerical licenses, contact <info@juspay.in>.
-* 
+*
 * This program is distributed in the hope that it will be useful,
 * but WITHOUT ANY WARRANTY; without even the implied warranty of
 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  The end user will
@@ -18,7 +18,7 @@
 * damages, claims, cost, including reasonable attorney fee claimed on Juspay.
 * The end user has NO right to claim any indemnification based on its use
 * of Licensed Software. See the GNU Affero General Public License for more details.
-* 
+*
 * You should have received a copy of the GNU Affero General Public License
 * along with this program. If not, see <https://www.gnu.org/licenses/agpl.html>.
 */
@@ -28,90 +28,72 @@ package in.juspay.mystique;
 import android.annotation.TargetApi;
 import android.app.Activity;
 import android.content.Context;
-import android.content.res.AssetManager;
+import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffXfermode;
+import android.graphics.Rect;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
 import android.os.AsyncTask;
 import android.os.Build;
-import android.os.Handler;
-import android.os.Looper;
 import android.text.Editable;
 import android.text.InputFilter;
 import android.text.Spanned;
+import android.text.TextUtils;
 import android.text.TextWatcher;
-import android.util.Base64;
 import android.util.DisplayMetrics;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.CalendarView;
+import android.widget.CheckBox;
+import android.widget.CompoundButton;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.PopupMenu;
-import android.widget.SeekBar;
+import android.widget.RatingBar;
+import android.widget.TextView;
 
-import org.apache.http.util.ByteArrayBuffer;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.io.BufferedInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.net.URL;
-import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Hashtable;
-
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
+
 
 /**
  * Created by naman_juspay on 9/11/16.
  */
 
 public class InflateView {
-    private static float x1,x2; // for swipe handling
-    private static float y1, y2; // for swipe handling
-    private Activity mContext;
-    private PopupMenu popUpMenu;
-    private ErrorCallback errCallback;
-    private static HashMap<String, Object> state = new HashMap<>();
     private static final String LOG_TAG = InflateView.class.getName();
-
-    private String currViewId = "-1";
-    private String lastCommand = "";
-    private String currView = "";
-    private String fileOrigin = "";
-
-    private DynamicUI dynamicUI;
-
-    // Language Tokens
-
-    private String FUNCTION_ARG_START = ":";
-    private String FUNCTION_ARG_SPLIT = ",";
-    private Pattern FUNCTION_ARG_SPLIT_ESCAPE = Pattern.compile("(?<!\\\\)" + Pattern.quote(","));
-    private String KEYWORD_SPLIT = "->";
-    private String ARG_TYPE_SPLIT = "_";
-    private String SETTER_EQUALS = "=";
-    private Pattern COMMAND_SPLIT = Pattern.compile("(?<!\\\\)" + Pattern.quote(";"));
-
-    private static final Map<Class,Class> PRIMITIVE_TYPES = new Hashtable<>();
+    private static final Map<Class, Class> PRIMITIVE_TYPES = new Hashtable<>();
+    static HashMap<Cmd, Method> functionCache = new HashMap<Cmd, Method>();
+    private static float x1, x2; // for swipe handling
+    private static float y1, y2; // for swipe handling
+    private static HashMap<String, Object> state = new HashMap<>();
 
     static {
         PRIMITIVE_TYPES.put(Boolean.class, boolean.class);
@@ -125,7 +107,23 @@ public class InflateView {
         PRIMITIVE_TYPES.put(Void.class, void.class);
     }
 
+    private Activity mContext;
+    private PopupMenu popUpMenu;
+    private ErrorCallback errCallback;
+    private String currViewId = "-1";
+    private String lastCommand = "";
 
+    // Language Tokens
+    private String currView = "";
+    private String fileOrigin = "";
+    private DynamicUI dynamicUI;
+    private String FUNCTION_ARG_START = ":";
+    private String FUNCTION_ARG_SPLIT = ",";
+    private Pattern FUNCTION_ARG_SPLIT_ESCAPE = Pattern.compile("(?<!\\\\)" + Pattern.quote(","));
+    private String KEYWORD_SPLIT = "->";
+    private String ARG_TYPE_SPLIT = "_";
+    private String SETTER_EQUALS = "=";
+    private Pattern COMMAND_SPLIT = Pattern.compile("(?<!\\\\)" + Pattern.quote(";"));
     private DuiLogger logger;
 
     //Never make it public - Should not be accessible outside this package
@@ -142,6 +140,55 @@ public class InflateView {
         return PRIMITIVE_TYPES.containsKey(clazz);
     }
 
+    public static void convertAndStoreArray(ArrayList arr, Class toConvertTo, String stateKey) {
+        int length = arr.size();
+        Object newArr = Array.newInstance(toConvertTo, length);
+        for (int i = 0; i < length; i++) {
+            Array.set(newArr, i, arr.get(i));
+        }
+        state.put(stateKey, newArr);
+    }
+
+    public static Bitmap getCroppedBitmap(Bitmap bmp, int radius) {
+        Bitmap sbmp = bmp;
+        if (radius == 0) {
+            return bmp;
+        }
+
+
+        if ((bmp.getWidth() != radius || bmp.getHeight() != radius) && bmp.getWidth() > 0 && bmp.getHeight() > 0) {
+            float smallest = Math.min(bmp.getWidth(), bmp.getHeight());
+            float factor = smallest / radius;
+            int scaledW = (int) (bmp.getWidth() / factor);
+            int scaledH = (int) (bmp.getHeight() / factor);
+            if (scaledW > 0 && scaledH > 0) {
+                sbmp = Bitmap.createScaledBitmap(bmp,
+                        scaledW,
+                        scaledH, false);
+            }
+        }
+
+
+        Bitmap output = Bitmap.createBitmap(radius, radius, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(output);
+
+        final String color = "#BAB399";
+        final Paint paint = new Paint();
+        final Rect rect = new Rect(0, 0, radius, radius);
+
+        paint.setAntiAlias(true);
+        paint.setFilterBitmap(true);
+        paint.setDither(true);
+        canvas.drawARGB(0, 0, 0, 0);
+        paint.setColor(Color.parseColor(color));
+        canvas.drawCircle(radius / 2 + 0.7f, radius / 2 + 0.7f,
+                radius / 2 + 0.1f, paint);
+        paint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC_IN));
+        canvas.drawBitmap(sbmp, rect, rect, paint);
+
+        return output;
+    }
+
     public String getErrorDetails() {
         return currViewId + " - " + currView + "-" + fileOrigin + " - " + lastCommand;
     }
@@ -153,11 +200,11 @@ public class InflateView {
     private Object[] parseArguments(String arguments) {
         ArrayList newArgs = new ArrayList();
         String[] splitArgs;
-        if(indexOf(arguments, FUNCTION_ARG_SPLIT, 0) == -1) {
+        if (indexOf(arguments, FUNCTION_ARG_SPLIT, 0) == -1) {
             newArgs.add(getValue(arguments));
-        }else {
+        } else {
             splitArgs = FUNCTION_ARG_SPLIT_ESCAPE.split(arguments);
-            for(String arg: splitArgs) {
+            for (String arg : splitArgs) {
                 newArgs.add(getValue(arg));
             }
         }
@@ -166,13 +213,13 @@ public class InflateView {
 
     private Class[] parseTypeArguments(String arguments) {
         //TODO: refactor this method like parseArguments is
-        if(arguments == null)
+        if (arguments == null)
             return null;
-        if(indexOf(arguments, FUNCTION_ARG_SPLIT, 0) != -1) {
+        if (indexOf(arguments, FUNCTION_ARG_SPLIT, 0) != -1) {
             String[] splitArgs = FUNCTION_ARG_SPLIT_ESCAPE.split(arguments);
-            if(splitArgs.length > 1 ) {
+            if (splitArgs.length > 1) {
                 Class[] classArray = new Class[splitArgs.length];
-                for(int i = 0; i < splitArgs.length; i++) {
+                for (int i = 0; i < splitArgs.length; i++) {
                     classArray[i] = getClassType(splitArgs[i]);
                 }
                 return classArray;
@@ -183,32 +230,32 @@ public class InflateView {
     }
 
     private <Any> Any getClassType(String toConvert) {
-        if(toConvert != null) {
+        if (toConvert != null) {
 //            logger.d("getClassType!", toConvert);
             String[] toParse = substr(toConvert, ARG_TYPE_SPLIT);
             String type = toParse[0];
             switch (type) {
                 case "i":
-                    return (Any)int.class;
+                    return (Any) int.class;
                 case "b":
-                    return (Any)boolean.class;
+                    return (Any) boolean.class;
                 case "cs":
-                    return (Any)CharSequence.class;
+                    return (Any) CharSequence.class;
                 case "f":
-                    return (Any)float.class;
+                    return (Any) float.class;
                 case "dp":
-                    return (Any)int.class;
+                    return (Any) int.class;
                 case "sp":
-                    return (Any)Float.class;
+                    return (Any) Float.class;
                 case "l":
                     return (Any) long.class;
                 case "get":
                     Object result = state.get(toParse[1]);
-                    if(result != null) {
+                    if (result != null) {
                         return (Any) result.getClass();
-                    }else {
-                        logger.e("WARNING", " isNull : fn__getClassType - " + toConvert + " "+ getErrorDetails());
-                        errCallback.onError("WARNING", " isNull : fn__getClassType - " + toConvert + " "+ getErrorDetails());
+                    } else {
+                        logger.e("WARNING", " isNull : fn__getClassType - " + toConvert + " " + getErrorDetails());
+                        errCallback.onError("WARNING", " isNull : fn__getClassType - " + toConvert + " " + getErrorDetails());
                     }
                 case "dpf":
                     return (Any) float.class;
@@ -222,36 +269,36 @@ public class InflateView {
                     return null;
             }
         } else {
-            logger.e("WARNING", " isNull : fn__getClassType -  toConvert" + " "+ getErrorDetails());
-            errCallback.onError("WARNING", " isNull : fn__getClassType -  toConvert" + " "+ getErrorDetails());
+            logger.e("WARNING", " isNull : fn__getClassType -  toConvert" + " " + getErrorDetails());
+            errCallback.onError("WARNING", " isNull : fn__getClassType -  toConvert" + " " + getErrorDetails());
         }
-        return (Any)String.class; // maybe default could be null
+        return (Any) String.class; // maybe default could be null
     }
 
     // converting strings to teh required types
     private <Any> Any getValue(String toConvert) {
         String value = null;
-        if(toConvert != null) {
+        if (toConvert != null) {
             logger.d("getValue!", toConvert);
             String[] toParse = substr(toConvert, ARG_TYPE_SPLIT);
             String type = toParse[0];
             value = toParse[1];
-            if(value.indexOf('\\') != -1 && value.indexOf(";") != -1)
+            if (value.indexOf('\\') != -1 && value.indexOf(";") != -1)
                 value = value.replace("\\\\;", ";");
 
-            if(value.indexOf('\\') != -1 && value.indexOf("_") != -1)
+            if (value.indexOf('\\') != -1 && value.indexOf("_") != -1)
                 value = value.replace("\\\\_", "_");
 
-            if(value.indexOf('\\') != -1 && value.indexOf(":") != -1)
+            if (value.indexOf('\\') != -1 && value.indexOf(":") != -1)
                 value = value.replace("\\\\:", ":");
 
-            if(value.indexOf('\\') != -1 && value.indexOf(",") != -1)
+            if (value.indexOf('\\') != -1 && value.indexOf(",") != -1)
                 value = value.replace("\\\\,", ",");
 
-            if(value.indexOf('\\') != -1 && value.indexOf("=") != -1)
+            if (value.indexOf('\\') != -1 && value.indexOf("=") != -1)
                 value = value.replace("\\\\=", "=");
 
-            if(value != null) {
+            if (value != null) {
                 switch (type) {
                     case "i":
                         return ((Any) (Integer) Integer.parseInt(value));
@@ -278,11 +325,11 @@ public class InflateView {
                     case "strget":
                         return (Any) (state.get(value) + "");
                 }
-            }else {
+            } else {
                 logger.e("WARNING", " isNull : fn__getValue - value" + " " + getErrorDetails());
                 errCallback.onError("WARNING", " isNull : fn__getValue - value" + " " + getErrorDetails());
             }
-        }else {
+        } else {
             logger.e("WARNING", " isNull : fn__getValue - value" + " " + getErrorDetails());
             errCallback.onError("WARNING", " isNull : fn__getValue - value" + " " + getErrorDetails());
         }
@@ -290,20 +337,20 @@ public class InflateView {
     }
 
     public int dpToPx(int dp) {
-        if(dp > 0) {
+        if (dp > 0) {
             DisplayMetrics displayMetrics = mContext.getResources().getDisplayMetrics();
             int px = Math.round(dp * displayMetrics.density);
             return px;
-        }else {
+        } else {
             return 0;
         }
     }
 
     public float dpToPx(float dp) {
-        if(dp > 0) {
+        if (dp > 0) {
             DisplayMetrics displayMetrics = mContext.getResources().getDisplayMetrics();
             return Math.round(dp * displayMetrics.density);
-        }else {
+        } else {
             return 0;
         }
     }
@@ -311,11 +358,11 @@ public class InflateView {
     private int indexOf(String s, String pattern, int startIndex) {
         int index = s.substring(startIndex).indexOf(pattern);
         if (index != -1 && index != 0 && index < s.length()) {
-            if (s.charAt(index+startIndex - 1) == '\\'){
+            if (s.charAt(index + startIndex - 1) == '\\') {
                 return indexOf(s, pattern, index + startIndex + pattern.length());
             }
         }
-        if(index == -1) {
+        if (index == -1) {
             return index;
         } else {
             return index + startIndex;
@@ -324,12 +371,12 @@ public class InflateView {
 
     private String[] substr(String toSubStr, String pattern) {
         int index = indexOf(toSubStr, pattern, 0);
-        if(index == -1) {
+        if (index == -1) {
             return new String[]{toSubStr};
         }
-        String [] parts = new String[2];
+        String[] parts = new String[2];
         parts[0] = toSubStr.substring(0, index);
-        parts[1] = toSubStr.substring(index+pattern.length());
+        parts[1] = toSubStr.substring(index + pattern.length());
         return parts;
 
     }
@@ -372,7 +419,7 @@ public class InflateView {
                     } else {
                         toInvoke = findMethodInClass(instance.getClass(), classMethodDetails);
                         if (toInvoke != null) {
-                            result = toInvoke.invoke(instance, null);
+                            result = toInvoke.invoke(instance, (Object[]) null);
                         } else {
                             logger.e("WARNING", " isNull : fn__runCommand - this  classMethodDetails " + classMethodDetails + " " + getErrorDetails());
                             errCallback.onError("WARNING", " isNull : fn__runCommand - this  classMethodDetails " + classMethodDetails + " " + getErrorDetails());
@@ -389,9 +436,9 @@ public class InflateView {
                             errCallback.onError("WARNING", " isNull : fn__runCommand - parent  classMethodDetails " + classMethodDetails + " " + getErrorDetails());
                         }
                     } else {
-                         toInvoke = findMethodInClass(instance.getClass(), classMethodDetails);
+                        toInvoke = findMethodInClass(instance.getClass(), classMethodDetails);
                         if (toInvoke != null) {
-                            result = toInvoke.invoke(instance, null);
+                            result = toInvoke.invoke(instance, (Object[]) null);
                         } else {
                             logger.e("WARNING", " isNull : fn__runCommand - parent  classMethodDetails " + classMethodDetails + " " + getErrorDetails());
                             errCallback.onError("WARNING", " isNull : fn__runCommand - parent classMethodDetails  " + classMethodDetails + " " + getErrorDetails());
@@ -412,7 +459,7 @@ public class InflateView {
                     } else {
                         toInvoke = findMethodInClass(mContext.getClass(), classMethodDetails);
                         if (toInvoke != null) {
-                            result = toInvoke.invoke(mContext, null);
+                            result = toInvoke.invoke(mContext, (Object[]) null);
                         } else {
                             logger.e("WARNING", " isNull : fn__runCommand - ctx classMethodDetails  " + classMethodDetails + " " + getErrorDetails());
                             errCallback.onError("WARNING", " isNull : fn__runCommand - ctx classMethodDetails  " + classMethodDetails + " " + getErrorDetails());
@@ -466,7 +513,7 @@ public class InflateView {
                             if (argsDetails != null) {
                                 if (keyword.equals("in.juspay.mystique.DuiInvocationHandler")) {
                                     Object[] args = parseArguments(argsDetails);
-                                   // result = new DuiInvocationHandler(args[0], this.dynamicUI);
+                                    result = new DuiInvocationHandler(args[0], this.dynamicUI);
                                 } else {
                                     Class[] argClass = parseTypeArguments(argsDetails);
                                     Constructor[] constructors = Class.forName(keyword).getConstructors();
@@ -504,14 +551,14 @@ public class InflateView {
                     result = findMethodInClass(instance.getClass(), command)
                             .invoke(instance, parseArguments(argsDetails));
                 } else {
-                    result = findMethodInClass(instance.getClass(), command).invoke(instance, null);
+                    result = findMethodInClass(instance.getClass(), command).invoke(instance, (Object[]) null);
                 }
             } else {
                 if (indexOf(command, FUNCTION_ARG_START, 0) != -1) {
                     argsDetails = substr(command, FUNCTION_ARG_START)[1];
                     result = findMethodInClass(result.getClass(), command).invoke(result, parseArguments(argsDetails));
                 } else {
-                    result = findMethodInClass(result.getClass(), command).invoke(result, null);
+                    result = findMethodInClass(result.getClass(), command).invoke(result, (Object[]) null);
                 }
             }
         }
@@ -521,16 +568,16 @@ public class InflateView {
     public Object parseAndRunPipe(Object instance, String toParse) throws Exception {
         String[] commands = COMMAND_SPLIT.split(toParse);
         Object result = null;
-        for(String command: commands) {
-            if(!command.equals("")) {
-                if(indexOf(command,SETTER_EQUALS,0) != -1) {
+        for (String command : commands) {
+            if (!command.equals("")) {
+                if (indexOf(command, SETTER_EQUALS, 0) != -1) {
                     String[] parts = substr(command, SETTER_EQUALS);
                     String setter = parts[0];
                     String stateName = substr(setter, ARG_TYPE_SPLIT)[1];
                     Object output = runCommand(instance, result, parts[1]);
                     state.put(stateName, output);
-                    logger.d(LOG_TAG,"setting " + stateName + " to " + output);
-                }else {
+                    logger.d(LOG_TAG, "setting " + stateName + " to " + output);
+                } else {
                     result = runCommand(instance, result, command);
                 }
             }
@@ -539,42 +586,33 @@ public class InflateView {
         return instance;
     }
 
-    public static void convertAndStoreArray(ArrayList arr, Class toConvertTo, String stateKey) {
-        int length = arr.size();
-        Object newArr = Array.newInstance(toConvertTo, length);
-        for(int i = 0; i < length; i++) {
-            Array.set(newArr, i, arr.get(i));
-        }
-        state.put(stateKey, newArr);
-    }
-
     private int getArgsLength(String args) {
-        return  FUNCTION_ARG_SPLIT_ESCAPE.split(args).length;
+        return FUNCTION_ARG_SPLIT_ESCAPE.split(args).length;
     }
 
     private boolean matchTypes(Class<?>[] methodClassTypes, Class<?>[] arguments) throws Exception {
-        for(int i = 0; i < methodClassTypes.length; i++){
+        for (int i = 0; i < methodClassTypes.length; i++) {
             // if real function accepts Object type and our type is non primitive we should consider it as true
-            if(arguments[i] != null && methodClassTypes[i] != null && !(methodClassTypes[i].equals(Object.class) && !arguments[i].isPrimitive())) {
-                if(!methodClassTypes[i].equals(arguments[i])) {
-                    if(methodClassTypes[i].isPrimitive() && !arguments[i].isArray()) { // isArray check as for spinners it is reaching inside - root cause not found yet
+            if (arguments[i] != null && methodClassTypes[i] != null && !(methodClassTypes[i].equals(Object.class) && !arguments[i].isPrimitive())) {
+                if (!methodClassTypes[i].equals(arguments[i])) {
+                    if (methodClassTypes[i].isPrimitive() && !arguments[i].isArray()) { // isArray check as for spinners it is reaching inside - root cause not found yet
                         Class properClass = null;
-                        try{
-                            Field type =  arguments[i].getField("TYPE");
+                        try {
+                            Field type = arguments[i].getField("TYPE");
                             properClass = (Class) type.get(null);
-                            if(!properClass.equals(methodClassTypes[i])){
+                            if (!properClass.equals(methodClassTypes[i])) {
                                 return false;
                             }
-                        }catch(Exception e) {
-                            if(e.getMessage().equals("java.lang.NoSuchFieldException")) {
+                        } catch (Exception e) {
+                            if (e.getMessage().equals("java.lang.NoSuchFieldException")) {
                                 return false;
                             }
                         }
-                    }else if(methodClassTypes[i].equals(ClassLoader.class)){ // special case added for proxy class Loader
-                        if(arguments[i].getName().equals("dalvik.system.PathClassLoader")) {
+                    } else if (methodClassTypes[i].equals(ClassLoader.class)) { // special case added for proxy class Loader
+                        if (arguments[i].getName().equals("dalvik.system.PathClassLoader")) {
                             return true;
                         }
-                    }else if(!(methodClassTypes[i].equals(arguments[i]))
+                    } else if (!(methodClassTypes[i].equals(arguments[i]))
                             || !methodClassTypes[i].isAssignableFrom(arguments[i])) {
                         return false;
                     }
@@ -584,7 +622,6 @@ public class InflateView {
         return true;
     }
 
-
     private Method tryExactMatch(Class c, String functionName, Class[] args) throws Exception {
         return c.getMethod(functionName, args);
     }
@@ -592,7 +629,7 @@ public class InflateView {
     private Method trySingleArgumentDeepMatch(Class c, String functionName, Class arg) {
 
         // First check if the argument is a primitive type wrapped in an object
-        if(isWrappedPrimitiveType(arg)) {
+        if (isWrappedPrimitiveType(arg)) {
             try {
                 return c.getMethod(functionName, PRIMITIVE_TYPES.get(arg));
             } catch (NoSuchMethodException e) {/* continue to match super classes.. yeah even for wrapped types */}
@@ -600,7 +637,7 @@ public class InflateView {
 
         // Check if any of arg's super classes / super interfaces match the method
         do {
-            for(Class iface : arg.getInterfaces()) {
+            for (Class iface : arg.getInterfaces()) {
                 try {
                     return c.getMethod(functionName, iface);
                 } catch (NoSuchMethodException e) { /* continue loop */ }
@@ -609,7 +646,7 @@ public class InflateView {
             try {
                 return c.getMethod(functionName, arg);
             } catch (NoSuchMethodException e) { /* continue loop */ }
-        } while((arg = arg.getSuperclass()) != null);
+        } while ((arg = arg.getSuperclass()) != null);
 
         logger.e(LOG_TAG, "Never reach here");
         return null;
@@ -620,9 +657,9 @@ public class InflateView {
 //        logger.d(LOG_TAG, "tryMultiAgrumentDeepMatch reached. Beware slow function.. " + c.toString() + " : " + functionName + " : " + arguments.length);
 
         Method[] methodList = c.getMethods(); // This call is very CPU intensive!!
-        for(Method inheritedMethod : methodList) {
-            if(inheritedMethod.getName().equals(functionName) && arguments != null){
-                if(inheritedMethod.getParameterTypes().length == arguments.length && matchTypes(inheritedMethod.getParameterTypes(), arguments)) {
+        for (Method inheritedMethod : methodList) {
+            if (inheritedMethod.getName().equals(functionName) && arguments != null) {
+                if (inheritedMethod.getParameterTypes().length == arguments.length && matchTypes(inheritedMethod.getParameterTypes(), arguments)) {
                     return inheritedMethod;
                 }
             }
@@ -630,71 +667,32 @@ public class InflateView {
         return null;
     }
 
-    public static void reset() {
-        state.clear();
-    }
-
-    static class Cmd {
-        Class clazz;
-        String functionName;
-        Class[] args;
-
-        public Cmd(Class clazz, String functionName, Class[] args) {
-            this.clazz = clazz;
-            this.functionName = functionName;
-            this.args = args;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
-
-            Cmd cmd = (Cmd) o;
-
-            if (!clazz.equals(cmd.clazz)) return false;
-            if (!functionName.equals(cmd.functionName)) return false;
-            // Probably incorrect - comparing Object[] arrays with Arrays.equals
-            return Arrays.equals(args, cmd.args);
-        }
-
-        @Override
-        public int hashCode() {
-            int result = clazz.hashCode();
-            result = 31 * result + functionName.hashCode();
-            result = 31 * result + (args != null ? Arrays.hashCode(args) : 0);
-            return result;
-        }
-    }
-
-    HashMap<Cmd,Method> functionCache = new HashMap<Cmd,Method>();
-
     private Method findMethodInClass(Class c, String methodSignature) throws Exception {
-        if(c == null) return null;
+        if (c == null) return null;
 //        logger.d(LOG_TAG, "findMethodInClass(): " + c.getName() + ", signature: " + methodSignature);
 
         String functionName = null;
         String arguments = null;
-        if(indexOf(methodSignature, FUNCTION_ARG_START, 0) != -1) {
+        if (indexOf(methodSignature, FUNCTION_ARG_START, 0) != -1) {
             String[] methodDetails = substr(methodSignature, FUNCTION_ARG_START);
             functionName = methodDetails[0];
             arguments = methodDetails[1];
-        }else {
+        } else {
             functionName = methodSignature;
         }
 
-        Class[] args = arguments != null ? parseTypeArguments(arguments): null;
+        Class[] args = arguments != null ? parseTypeArguments(arguments) : null;
 
-        Cmd cmd = new Cmd(c,functionName,args);
+        Cmd cmd = new Cmd(c, functionName, args);
 
-        if(functionCache.containsKey(cmd)) {
+        if (functionCache.containsKey(cmd)) {
             return functionCache.get(cmd);
         } else {
             Method m;
             try {
                 m = tryExactMatch(c, functionName, args);
             } catch (NoSuchMethodException e) {
-                if(args != null && args.length == 1)
+                if (args != null && args.length == 1)
                     m = trySingleArgumentDeepMatch(c, functionName, args[0]);
                 else
                     m = tryMultiAgrumentDeepMatch(c, functionName, args); // Last fallback.. consumes CPU!
@@ -709,16 +707,16 @@ public class InflateView {
         try {
             fieldToSet = instance.getClass().getField(fieldName);
         } catch (NoSuchFieldException e) {
-            Field[] fieldsList =  instance.getClass().getFields();
-            for(Field currentField : fieldsList) {
-                if(currentField.getName().equals(fieldName)){
+            Field[] fieldsList = instance.getClass().getFields();
+            for (Field currentField : fieldsList) {
+                if (currentField.getName().equals(fieldName)) {
                     fieldToSet = currentField;
                 }
             }
         }
-        if(fieldToSet != null){
+        if (fieldToSet != null) {
             fieldToSet.set(instance, getValue(arg));
-        }else {
+        } else {
             logger.d(LOG_TAG, "Couldn't set field for " + fieldName);
         }
         return instance;
@@ -732,7 +730,7 @@ public class InflateView {
         this.currView = viewType;
     }
 
-    public void setFileOrigin (String filename) {
+    public void setFileOrigin(String filename) {
         this.fileOrigin = filename;
     }
 
@@ -771,11 +769,223 @@ public class InflateView {
                 Method onClickMethod = instance.getClass().getMethod("setOnKeyListener", View.OnKeyListener.class);
                 onClickMethod.invoke(instance, new View.OnKeyListener() {
                     @Override
-                    public boolean onKey (View view, int i, KeyEvent k) {
+                    public boolean onKey(View view, int i, KeyEvent k) {
                         dynamicUI.addJsToWebView("window.callUICallback('" + js + "','" + i + "');");
                         return false;
                     }
                 });
+            }
+
+            if (key.equals("onCheckChange")) {
+                Log.e("SETTING -> ", "onCheckChange");
+                final String js = properties.getString("onCheckChange");
+
+
+                CheckBox myChekBox = (CheckBox) instance;
+                myChekBox.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+                    @Override
+                    public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                        dynamicUI.addJsToWebView("window.callUICallback('" + js + "','" + isChecked + "');");
+                    }
+                });
+
+
+            }
+
+
+            if (key.equals("imageFromUrl")) {
+                final String url = properties.getString("imageFromUrl");
+                final ImageView imageView = (ImageView) instance;
+
+
+                mContext.runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+
+                        new DownloadImageTask(imageView, "1")
+                                .execute(url);
+
+                    }
+
+                });
+            }
+
+
+            if (key.equals("enableEllipse")) {
+                final String value = properties.getString("enableEllipse");
+                final TextView textView = (TextView) instance;
+
+                if (textView != null) {
+                    mContext.runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (value.equals("true")) {
+                                textView.setEllipsize(TextUtils.TruncateAt.END);
+                                textView.setMaxLines(1);
+                            }
+                        }
+
+                    });
+                }
+            }
+
+            if (key.equals("elevation")) {
+                final String value = properties.getString("elevation");
+                final View myView = (View) instance;
+
+                if (myView != null) {
+                    mContext.runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                                myView.setElevation(Float.parseFloat(value));
+                            }
+                        }
+
+                    });
+                }
+            }
+
+            if (key.equals("imageFromSvg")) {
+                final String url = properties.getString("imageFromSvg");
+                final ImageView imageView = (ImageView) instance;
+
+                final Resources resources = mContext.getResources();
+                final int resourceIdPlaceholder = resources.getIdentifier(url, "drawable",
+                        mContext.getPackageName());
+                mContext.runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+
+                        try {
+                            // get input stream
+                            InputStream ims = mContext.getAssets().open(url + ".svg");
+                            // load image as Drawable
+                            Drawable d = Drawable.createFromStream(ims, null);
+                            // set image to ImageView
+                            imageView.setImageDrawable(d);
+                        } catch (IOException ex) {
+                            Log.e("EXCEPTION", ex.toString());
+                            return;
+                        }
+                        // imageView.setImageDrawable( resources.getDrawable(resourceIdPlaceholder));
+                    }
+
+                });
+            }
+
+            if (key.equals("circularImageUrl")) {
+                final String input = properties.getString("circularImageUrl");
+
+                String[] words = input.split(",");
+                final String border = words[0];
+                final String imageName = words[1];
+
+                Boolean isRemoteUrl = imageName.toLowerCase().contains("http://") || imageName.toLowerCase().contains("https://");
+                Boolean isFromFile = imageName.toLowerCase().contains("file://") || imageName.toLowerCase().contains("file://");
+                final ImageView imageView = (ImageView) instance;
+                final Resources resources = mContext.getResources();
+
+                if (!isRemoteUrl && !isFromFile) {
+                    final int resId = resources.getIdentifier(imageName, "drawable",
+                            mContext.getPackageName());
+
+                    mContext.runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                imageView.setImageDrawable(mContext.getResources().getDrawable(resId));
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        }
+
+                    });
+                } else if (isRemoteUrl) {
+                    mContext.runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+
+
+                            new DownloadImageTask(imageView, border)
+                                    .execute(imageName);
+
+                        }
+
+                    });
+                } else if (isFromFile) {
+
+                    String fileName = imageName.split("//")[1];
+                    final File imgFile = new File(fileName);
+
+                    if (imgFile.exists()) {
+
+                        mContext.runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                try {
+                                    if (Integer.parseInt(border) != 0) {
+
+                                        if (imgFile.exists()) {
+                                            Bitmap myBitmap = BitmapFactory.decodeFile(imgFile.getAbsolutePath());
+                                            imageView.setImageBitmap(myBitmap);
+                                        }
+                                    } else {
+                                        Bitmap myBitmap = BitmapFactory.decodeFile(imgFile.getAbsolutePath());
+                                        Bitmap bitmap = myBitmap.copy(Bitmap.Config.ARGB_8888, true);
+                                        int w = bitmap.getWidth();
+                                        Bitmap roundBitmap = getCroppedBitmap(bitmap, w);
+                                        imageView.setImageBitmap(roundBitmap);
+
+                                    }
+
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+                            }
+
+                        });
+
+                    } else {
+                        Log.d("wrong path", "is given");
+                    }
+
+                }
+
+            }
+
+
+            if (key.equals("multiCorners")) {
+
+                final View layout = (LinearLayout) instance;
+                final String cornerString = properties.getString("multiCorners");
+
+                List<String> list = Arrays.asList(cornerString.split(","));
+
+                Float topLeft = Float.parseFloat(list.get(0));
+                Float topRight = Float.parseFloat(list.get(1));
+                Float bottomRight = Float.parseFloat(list.get(2));
+                Float bottomLeft = Float.parseFloat(list.get(3));
+                String backgroundColor = list.get(4);
+
+                GradientDrawable gd = new GradientDrawable();
+                gd.setColor(Color.parseColor(backgroundColor));
+                gd.setCornerRadii(new float[]{topLeft, topLeft, topRight, topRight, bottomRight, bottomRight, bottomLeft, bottomLeft});
+                layout.setBackgroundDrawable(gd);
+            }
+
+
+            if (key.equals("onRatingChange")) {
+                final String js = properties.getString("onRatingChange");
+                Method onRatingChange = instance.getClass().getMethod("setOnRatingBarChangeListener", RatingBar.OnRatingBarChangeListener.class);
+                onRatingChange.invoke(instance, new RatingBar.OnRatingBarChangeListener() {
+                    @Override
+                    public void onRatingChanged(RatingBar ratingBar, float rating, boolean fromUser) {
+                        dynamicUI.addJsToWebView("window.callUICallback('" + js + "','" + rating + "');");
+                    }
+                });
+
+
             }
 
             if (key.equals("onLongPress")) {
@@ -797,6 +1007,22 @@ public class InflateView {
                     @Override
                     public void onClick(View v) {
                         dynamicUI.addJsToWebView("window.callUICallback('" + js + "');");
+                    }
+                });
+            }
+
+            if (key.equals("onCheckedChange")) {
+                final String js = properties.getString("onCheckedChange");
+                Method onCheckedChangeMethod = instance.getClass().getMethod
+                        ("setOnCheckedChangeListener",
+                                CompoundButton
+                                        .OnCheckedChangeListener.class);
+
+                onCheckedChangeMethod.invoke(instance, new CompoundButton.OnCheckedChangeListener() {
+                    @Override
+                    public void onCheckedChanged(CompoundButton v, boolean b) {
+                        dynamicUI.addJsToWebView("window.callUICallback('" + js + "','" + b + "')" +
+                                ";");
                     }
                 });
             }
@@ -829,7 +1055,7 @@ public class InflateView {
 
                     @Override
                     public void onTextChanged(CharSequence s, int start, int before, int count) {
-                        dynamicUI.addJsToWebView("window.callUICallback('" + js + "', '" + Base64.encodeToString(s.toString().getBytes(), Base64.DEFAULT) + "');");
+                        dynamicUI.addJsToWebView("window.callUICallback('" + js + "', '" + s + "');");
                     }
 
                     @Override
@@ -867,8 +1093,8 @@ public class InflateView {
 
             if (key.equals("onDateChange")) {
                 final String jsFunc = properties.getString("onDateChange");
-                Method onTouchMethod = instance.getClass().getMethod("setOnDateChangeListener", CalendarView.OnDateChangeListener.class);
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+                    Method onTouchMethod = instance.getClass().getMethod("setOnDateChangeListener", CalendarView.OnDateChangeListener.class);
                     onTouchMethod.invoke(instance, new CalendarView.OnDateChangeListener() {
                         @Override
                         public void onSelectedDayChange(CalendarView view, int year, int month, int dayOfMonth) {
@@ -900,8 +1126,8 @@ public class InflateView {
                                 float delX = x2 - x1;
                                 float delY = y2 - y1;
                                 float angle = (float) Math.toDegrees(Math.atan2(delY, delX));
-                                angle = (angle < 0)? angle + 360f : angle;
-                                if((angle >= 45 && angle <= 135) || (angle >=225 && angle <= 315)) {
+                                angle = (angle < 0) ? angle + 360f : angle;
+                                if ((angle >= 45 && angle <= 135) || (angle >= 225 && angle <= 315)) {
                                     if (y2 - y1 > THRESHOLD) {
                                         swipeType = "2";
                                     } else if (y1 - y2 > THRESHOLD) {
@@ -926,14 +1152,14 @@ public class InflateView {
                 });
             }
 
-            if(key.equals("popupMenu") && Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+            if (key.equals("popupMenu") && Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
                 // split on , with escaped ,
                 String[] popupMenu = properties.getString("popupMenu").split(FUNCTION_ARG_SPLIT_ESCAPE.toString());
 
                 final String callbackName = properties.getString("onMenuItemClick");
-                popUpMenu = new PopupMenu(mContext, (View)instance);
+                popUpMenu = new PopupMenu(mContext, (View) instance);
                 for (int i = 0; i < popupMenu.length; i++) {
-                    if(popupMenu[i].indexOf("\\") != -1 && popupMenu[i].indexOf(",") != -1) {
+                    if (popupMenu[i].indexOf("\\") != -1 && popupMenu[i].indexOf(",") != -1) {
                         popupMenu[i] = popupMenu[i].replace("\\\\,", ",");
                     }
                     popUpMenu.getMenu().add(Menu.NONE, i, Menu.NONE, popupMenu[i]);
@@ -941,14 +1167,14 @@ public class InflateView {
                 popUpMenu.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
                     @Override
                     public boolean onMenuItemClick(MenuItem item) {
-                        dynamicUI.addJsToWebView("window.callUICallback('" + callbackName + "', '"+ item.getItemId() +"');");
+                        dynamicUI.addJsToWebView("window.callUICallback('" + callbackName + "', '" + item.getItemId() + "');");
                         return true;
                     }
                 });
 
                 final PopupMenu finalPopup = popUpMenu;
-                Log.d(LOG_TAG, "parseKeys: "+(View)instance);
-                ((View)instance).setOnClickListener(new View.OnClickListener() {
+                Log.d(LOG_TAG, "parseKeys: " + (View) instance);
+                ((View) instance).setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View v) {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
@@ -958,31 +1184,42 @@ public class InflateView {
                 });
             }
 
-            if (key.equals("onSeekBarChanged")) {
-                final String jsFunc = properties.getString("onSeekBarChanged");
-                Method setOnSeekBarChangeListener = instance.getClass().getMethod("setOnSeekBarChangeListener", SeekBar.OnSeekBarChangeListener.class);
-                setOnSeekBarChangeListener.invoke(instance, new SeekBar.OnSeekBarChangeListener() {
-
-                    @Override
-                    public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
-                        String js = "window.callUICallback('" + jsFunc + "', 'PROGRESS_CHANGED', '" + i + "','" + b + "');";
-                        dynamicUI.addJsToWebView(js);
+            if (key.equals("localImage")) {
+                Bitmap bmp = null;
+                String[] filePaths = properties.getString("localImage").split(",");
+                for (int i = 0; i < filePaths.length && bmp == null; i++) {
+                    if (filePaths[i].startsWith("assets")) {
+                        byte[] currentConfig = FileUtil.getFileFromAssets(mContext, filePaths[i].split("/")[1]);
+                        bmp = BitmapFactory.decodeByteArray(currentConfig, 0, currentConfig.length);
+                    } else if (filePaths[i].startsWith("drawable")) {
+                        int resID = mContext.getResources().getIdentifier(filePaths[i].split("/")[1], "drawable", mContext.getPackageName());
+                        bmp = BitmapFactory.decodeResource(mContext.getResources(), resID);
+                    } else if (filePaths[i].startsWith("internal")) {
+                        byte[] currentConfig = FileUtil.getFileFromInternalStorage(mContext, filePaths[i].split("/")[1]);
+                        bmp = BitmapFactory.decodeByteArray(currentConfig, 0, currentConfig.length);
+                    } else if (filePaths[i].startsWith("http")) {
+                        int index = filePaths[i].lastIndexOf("/");
+                        String fileName = filePaths[i].substring(index + 1);
+                        this.downloadFile(filePaths[i], instance, fileName);
                     }
-
-                    @Override
-                    public void onStartTrackingTouch(SeekBar seekBar) {
-                        String js = "window.callUICallback('" + jsFunc + "', 'START_TRACKING_TOUCH');";
-                        dynamicUI.addJsToWebView(js);
-                    }
-
-                    @Override
-                    public void onStopTrackingTouch(SeekBar seekBar) {
-                        String js = "window.callUICallback('" + jsFunc + "', 'STOP_TRACKING_TOUCH');";
-                        dynamicUI.addJsToWebView(js);
-                    }
-                });
+                }
+                ((ImageView) instance).setImageBitmap(bmp);
             }
-            
+
+
+            if (key.equals("localBackgoundImage")) {
+                Bitmap bmp = null;
+                String[] filePaths = properties.getString("localImage").split(",");
+                for (int i = 0; i < filePaths.length && bmp == null; i++) {
+                    bmp = BitmapFactory.decodeFile(filePaths[i]);
+                }
+                if (Build.VERSION.SDK_INT >= 16) {
+                    ((View) instance).setBackground(new BitmapDrawable(mContext.getResources(), bmp));
+                } else {
+                    ((View) instance).setBackgroundDrawable(new BitmapDrawable(mContext.getResources(), bmp));
+                }
+            }
+
             if (key.equals("runInUI")) {
                 String value = properties.getString(key);
                 instance = parseAndRunPipe(instance, value);
@@ -1008,8 +1245,9 @@ public class InflateView {
             }
         }
     }
+
     @TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH)
-    public void dismissPopUp(){
+    public void dismissPopUp() {
         mContext.runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -1017,4 +1255,107 @@ public class InflateView {
             }
         });
     }
+
+    public void downloadFile(final String URL, final Object instance, final String fileName) {
+        new AsyncTask() {
+            @Override
+            protected Object doInBackground(Object[] params) {
+                try {
+                    RemoteAssetService.downloadAndSaveFile(mContext, URL);
+                } catch (Exception e) {
+                    return "FAILURE : " + e.getMessage();
+                }
+                return "SUCCESS";
+            }
+
+            @Override
+            protected void onPostExecute(Object o) {
+                if (o == "SUCCESS") {
+                    byte[] currentConfig = null;
+                    Bitmap bmp = null;
+                    try {
+                        currentConfig = FileUtil.getFileFromInternalStorage(mContext, fileName);
+                        bmp = BitmapFactory.decodeByteArray(currentConfig, 0, currentConfig.length);
+                        ((ImageView) instance).setImageBitmap(bmp);
+                    } catch (IOException e) {
+
+                    }
+                }
+            }
+        }.execute();
+    }
+
+    static class Cmd {
+        Class clazz;
+        String functionName;
+        Class[] args;
+
+        public Cmd(Class clazz, String functionName, Class[] args) {
+            this.clazz = clazz;
+            this.functionName = functionName;
+            this.args = args;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+
+            Cmd cmd = (Cmd) o;
+
+            if (!clazz.equals(cmd.clazz)) return false;
+            if (!functionName.equals(cmd.functionName)) return false;
+            // Probably incorrect - comparing Object[] arrays with Arrays.equals
+            return Arrays.equals(args, cmd.args);
+        }
+
+        @Override
+        public int hashCode() {
+            int result = clazz.hashCode();
+            result = 31 * result + functionName.hashCode();
+            result = 31 * result + (args != null ? Arrays.hashCode(args) : 0);
+            return result;
+        }
+    }
+
+    private class DownloadImageTask extends AsyncTask<String, Void, Bitmap> {
+
+
+        ImageView bmImage;
+        String border;
+
+        public DownloadImageTask(ImageView bmImage, String border) {
+            this.bmImage = bmImage;
+            this.border = border;
+        }
+
+        protected Bitmap doInBackground(String... urls) {
+            String urldisplay = urls[0];
+            Bitmap mIcon11 = null;
+            try {
+                InputStream in = new java.net.URL(urldisplay).openStream();
+                mIcon11 = BitmapFactory.decodeStream(in);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            return mIcon11;
+        }
+
+        protected void onPostExecute(Bitmap result) {
+            try {
+                if(result !=null){
+                    if (Integer.parseInt(border) != 0) {
+                        bmImage.setImageBitmap(result);
+                    } else {
+                        bmImage.setImageBitmap(getCroppedBitmap(result, result.getWidth()));
+                    }
+                }
+            }catch (Exception e){
+                e.printStackTrace();
+            }
+
+        }
+    }
+
+
 }
