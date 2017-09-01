@@ -1,15 +1,15 @@
 /*
 * Copyright (c) 2012-2017 "JUSPAY Technologies"
 * JUSPAY Technologies Pvt. Ltd. [https://www.juspay.in]
-* 
+*
 * This file is part of JUSPAY Platform.
-* 
+*
 * JUSPAY Platform is free software: you can redistribute it and/or modify
 * it for only educational purposes under the terms of the GNU Affero General
 * Public License (GNU AGPL) as published by the Free Software Foundation,
 * either version 3 of the License, or (at your option) any later version.
 * For Enterprise/Commerical licenses, contact <info@juspay.in>.
-* 
+*
 * This program is distributed in the hope that it will be useful,
 * but WITHOUT ANY WARRANTY; without even the implied warranty of
 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  The end user will
@@ -18,12 +18,12 @@
 * damages, claims, cost, including reasonable attorney fee claimed on Juspay.
 * The end user has NO right to claim any indemnification based on its use
 * of Licensed Software. See the GNU Affero General Public License for more details.
-* 
+*
 * You should have received a copy of the GNU Affero General Public License
 * along with this program. If not, see <https://www.gnu.org/licenses/agpl.html>.
 */
-
 package in.juspay.mystique;
+
 import android.app.Activity;
 import android.content.Context;
 import android.view.View;
@@ -31,6 +31,7 @@ import android.view.ViewGroup;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
+
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.Iterator;
@@ -50,9 +51,6 @@ public class Renderer {
     private DynamicUI dynamicUI;
     private DuiLogger logger;
 
-    public void dismissPopUp(){
-        inflateView.dismissPopUp();
-    }
     //Never make it public - Should not be accessible outside this package
     Renderer(Activity c, DynamicUI dynamicUI) {
         this.dynamicUI = dynamicUI;
@@ -60,7 +58,11 @@ public class Renderer {
         mContext = c;
         errCallback = dynamicUI.getErrorCallback();
         logger = dynamicUI.getLogger();
-        inflateView =  new InflateView(mContext, logger, errCallback, dynamicUI);
+        inflateView = new InflateView(mContext, logger, errCallback, dynamicUI);
+    }
+
+    public void dismissPopUp() {
+        inflateView.dismissPopUp();
     }
 
     public void RenderUI(final String ui, ViewGroup container) throws Exception {
@@ -76,18 +78,18 @@ public class Renderer {
 
     public void addViewToParent(String parentStrId, JSONObject ui, int index, boolean replaceChild) throws Exception {
         int parentId = mContext.getResources().getIdentifier(parentStrId, "id", mContext.getPackageName());
-        if(index >= 0) {
+        if (index >= 0) {
             ViewGroup parentView = (ViewGroup) mContext.findViewById(parentId);
-            if(replaceChild){
+            if (replaceChild) {
                 parentView.removeAllViews();
             }
             View toAddToParent = createView(ui);
-            if(toAddToParent != null) {
+            if (toAddToParent != null) {
                 parentView.addView(toAddToParent, index);
             } else {
                 errCallback.onError("ERROR", " isNull : fn__addViewToParent - child null " + getErrorDetails());
             }
-        }else {
+        } else {
             if (ui.has("props")) {
                 setCurrentNodeDetails(ui.getString("type"), ui.getJSONObject("props"));
             }
@@ -95,7 +97,7 @@ public class Renderer {
         }
     }
 
-    public void setCurrentNodeDetails(String viewType, JSONObject properties ) throws  Exception {
+    public void setCurrentNodeDetails(String viewType, JSONObject properties) throws Exception {
         inflateView.setCurrView(viewType);
 
         if (properties.has("node_id")) {
@@ -113,7 +115,7 @@ public class Renderer {
         String viewType = ui.getString("type");
         JSONObject properties = ui.getJSONObject("props");
 
-        if(ui.has("props")) {
+        if (ui.has("props")) {
             setCurrentNodeDetails(viewType, properties);
         }
 
@@ -136,7 +138,7 @@ public class Renderer {
             for (int i = 0; i < children.length(); i++) {
                 child = children.getJSONObject(i);
                 View childView = createView(child);
-                if(childView != null) {
+                if (childView != null) {
                     Method addChildMethod = cls.getMethod("addView", View.class);
                     addChildMethod.invoke(instance, childView);
                 }
@@ -148,10 +150,10 @@ public class Renderer {
 
 
     private View Render(final View viewInstance) {
-        if(viewInstance != null) {
+        if (viewInstance != null) {
             container.addView(viewInstance);
-        }else {
-            errCallback.onError("ERROR", " isNull : fn__Render -  instance null "+ getErrorDetails());
+        } else {
+            errCallback.onError("ERROR", " isNull : fn__Render -  instance null " + getErrorDetails());
         }
 
         return container;
@@ -163,7 +165,7 @@ public class Renderer {
     }
 
     public String getErrorDetails() {
-        return  inflateView.getErrorDetails();
+        return inflateView.getErrorDetails();
     }
 
     public Object parseAndRunPipe(Object instance, String toParse, String lineNo, String fileName) throws Exception {

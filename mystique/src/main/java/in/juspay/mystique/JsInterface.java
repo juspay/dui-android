@@ -1,15 +1,15 @@
 /*
 * Copyright (c) 2012-2017 "JUSPAY Technologies"
 * JUSPAY Technologies Pvt. Ltd. [https://www.juspay.in]
-* 
+*
 * This file is part of JUSPAY Platform.
-* 
+*
 * JUSPAY Platform is free software: you can redistribute it and/or modify
 * it for only educational purposes under the terms of the GNU Affero General
 * Public License (GNU AGPL) as published by the Free Software Foundation,
 * either version 3 of the License, or (at your option) any later version.
 * For Enterprise/Commerical licenses, contact <info@juspay.in>.
-* 
+*
 * This program is distributed in the hope that it will be useful,
 * but WITHOUT ANY WARRANTY; without even the implied warranty of
 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  The end user will
@@ -18,7 +18,7 @@
 * damages, claims, cost, including reasonable attorney fee claimed on Juspay.
 * The end user has NO right to claim any indemnification based on its use
 * of Licensed Software. See the GNU Affero General Public License for more details.
-* 
+*
 * You should have received a copy of the GNU Affero General Public License
 * along with this program. If not, see <https://www.gnu.org/licenses/agpl.html>.
 */
@@ -30,51 +30,31 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.AsyncTask;
-import android.os.Build;
 import android.os.Environment;
-import android.text.InputFilter;
-import android.text.Spanned;
 import android.util.Base64;
 import android.util.DisplayMetrics;
-import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-
-import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
-import android.webkit.WebView;
-import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
-import android.widget.EditText;
+import android.webkit.JavascriptInterface;
 import android.widget.ImageView;
 import android.widget.PopupMenu;
-import android.widget.Spinner;
 import android.widget.Toast;
 
-import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
-import java.util.regex.Pattern;
 
 /**
  * Created by sahebjot on 4/10/16.
  */
-
 public class JsInterface {
+    private static final String LOG_TAG = JsInterface.class.getName();
     private Activity activity;
     private Renderer renderer;
     private ViewGroup container;
@@ -82,8 +62,6 @@ public class JsInterface {
     private ErrorCallback errCallback;
     private String state;
     private DynamicUI dynamicUI;
-
-    private static final String LOG_TAG = JsInterface.class.getName();
 
     //Never make it public - Should not be accessible outside this package
     JsInterface(Activity c, ViewGroup container, DynamicUI dynamicUI) {
@@ -95,8 +73,8 @@ public class JsInterface {
         errCallback = dynamicUI.getErrorCallback();
     }
 
-    public Renderer getRenderer(){
-        return  this.renderer;
+    public Renderer getRenderer() {
+        return this.renderer;
     }
 
     @android.webkit.JavascriptInterface
@@ -112,8 +90,8 @@ public class JsInterface {
                 } catch (Exception e) {
                     if (e != null) {
                         String errName = e.getClass().getName();
-                        logger.e("ERROR"," excep: fn__Render  - " +  errName + " - " + renderer.getErrorDetails());
-                        errCallback.onError("ERROR"," excep: fn__Render  - " +  errName + " - " + renderer.getErrorDetails());
+                        logger.e("ERROR", " excep: fn__Render  - " + errName + " - " + renderer.getErrorDetails());
+                        errCallback.onError("ERROR", " excep: fn__Render  - " + errName + " - " + renderer.getErrorDetails());
                     }
                     if (callbackName != null) {
                         dynamicUI.addJsToWebView("window.callUICallback(" + callbackName + ",'failure');");
@@ -124,16 +102,18 @@ public class JsInterface {
     }
 
     @android.webkit.JavascriptInterface
-    public void dismissPopUp(){
+    public void dismissPopUp() {
         renderer.dismissPopUp();
     }
+
     @android.webkit.JavascriptInterface
     public void throwError(String error) {
         logger.e("throwError", error);
     }
 
     @android.webkit.JavascriptInterface
-    public void addViewToParent(final String parentId, final String ui, final int index, final String callbackName, final boolean replaceChild) {
+    public void addViewToParent(final String parentId, final String ui, final int index,
+                                final String callbackName, final boolean replaceChild) {
         activity.runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -185,6 +165,7 @@ public class JsInterface {
             }
         });
     }
+
 
     // backward compat
     @android.webkit.JavascriptInterface
@@ -255,7 +236,7 @@ public class JsInterface {
 
     @android.webkit.JavascriptInterface
     public String getState() {
-        if(this.state != null) {
+        if (this.state != null) {
             return this.state;
         } else {
             return "{}";
@@ -263,7 +244,12 @@ public class JsInterface {
     }
 
     @android.webkit.JavascriptInterface
-    public void setImage(final int id, final String base64ImageString ) {
+    public void setState(String state) {
+        this.state = state;
+    }
+
+    @android.webkit.JavascriptInterface
+    public void setImage(final int id, final String base64ImageString) {
         activity.runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -274,19 +260,14 @@ public class JsInterface {
                     image.setImageBitmap(decodedByte);
 
                 } catch (Exception e) {
-                    if(e != null) {
+                    if (e != null) {
                         String errName = e.getClass().getName();
-                        logger.e("ERROR"," excep: fn__setImage  - " +  errName + " - " + renderer.getErrorDetails());
-                        errCallback.onError("ERROR"," excep: fn__setImage  - " +  errName + " - " + renderer.getErrorDetails());
+                        logger.e("ERROR", " excep: fn__setImage  - " + errName + " - " + renderer.getErrorDetails());
+                        errCallback.onError("ERROR", " excep: fn__setImage  - " + errName + " - " + renderer.getErrorDetails());
                     }
                 }
             }
         });
-    }
-
-    @android.webkit.JavascriptInterface
-    public void setState(String state) {
-        this.state = state;
     }
 
     @android.webkit.JavascriptInterface
@@ -305,30 +286,30 @@ public class JsInterface {
         activity.getWindowManager().getDefaultDisplay().getMetrics(displaymetrics);
         int height = displaymetrics.heightPixels;
         int width = displaymetrics.widthPixels;
-        return "{\"width\":"+width+",\"height\":"+height+" }";
+        return "{\"width\":" + width + ",\"height\":" + height + " }";
     }
 
-    @android.webkit.JavascriptInterface
-    public void toggleKeyboard(final int id, final String type) {
-        activity.runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                View view = activity.findViewById(id);
-                InputMethodManager inputMethodManager = (InputMethodManager) activity.getSystemService(Context.INPUT_METHOD_SERVICE);
+    @JavascriptInterface
+    public void showKeyboard() {
+        InputMethodManager imm = (InputMethodManager)
+                activity.getApplicationContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+        if (imm != null) {
+            imm.toggleSoftInput(InputMethodManager.SHOW_IMPLICIT, 0);
+        }
+    }
 
-                if (type.equals("show")) {
-                    inputMethodManager.showSoftInput(view, InputMethodManager.SHOW_IMPLICIT);
-                } else {
-                    inputMethodManager.hideSoftInputFromWindow(view.getWindowToken(), 0);
-                }
-            }
-        });
+    @JavascriptInterface
+    public void hideKeyboard() {
+        View view = activity.getCurrentFocus();
+        if (view != null) {
+            InputMethodManager imm = (InputMethodManager) activity.getApplicationContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+            imm.hideSoftInputFromWindow(activity.getCurrentFocus().getWindowToken(), 0);
+        }
     }
 
 
     @android.webkit.JavascriptInterface
-    public void generateUIElement(final String type, final int id, final String[] elements, final String callbackName)
-    {
+    public void generateUIElement(final String type, final int id, final String[] elements, final String callbackName) {
         activity.runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -370,6 +351,77 @@ public class JsInterface {
     }
 
     @android.webkit.JavascriptInterface
+    public String getAssetBaseFilePath() {
+        return "/android_asset";
+    }
+
+    @android.webkit.JavascriptInterface
+    public String getExternalStorageBaseFilePath() {
+        return Environment.getExternalStorageDirectory()
+                .getAbsolutePath();
+    }
+
+    @android.webkit.JavascriptInterface
+    public String loadFileFromExternalStorage(String basePath, String fileName) {
+        String data;
+        try {
+            data = new String(FileUtil.getFileFromExternalStorage(basePath, fileName));
+        } catch (Exception e) {
+            data = "";
+        }
+        return data;
+    }
+
+    @android.webkit.JavascriptInterface
+    public String loadFile(String fileName) {
+        String data;
+        try {
+            byte[] fileData = FileUtil.getFileFromInternalStorageOrAssets(activity, fileName);
+            if (fileData == null) {
+                data = "";
+            } else {
+                data = new String(fileData);
+            }
+        } catch (Exception e) {
+            data = "";
+        }
+        return data;
+    }
+
+    @android.webkit.JavascriptInterface
+    public void downloadFile(final String URL, final String callback) {
+        new AsyncTask() {
+            @Override
+            protected Object doInBackground(Object[] params) {
+                try {
+                    RemoteAssetService.downloadAndSaveFile(activity.getApplicationContext(), URL);
+                } catch (Exception e) {
+                    return "FAILURE : " + e.getMessage();
+                }
+                return "SUCCESS";
+            }
+
+            @Override
+            protected void onPostExecute(Object o) {
+                if (callback != null) {
+                    dynamicUI.addJsToWebView("window." + callback + "(\"" + ((String) o) + "\", \"" + URL + "\");");
+                } else {
+                }
+            }
+        }.execute();
+    }
+
+    @android.webkit.JavascriptInterface
+    public String saveFileToInternalStorage(String fileName, String data, final String callback) {
+        try {
+            FileUtil.saveFileToInternalStorage(activity, fileName, data.getBytes());
+            return "SUCCESS";
+        } catch (Exception e) {
+            return "FAILURE : " + e.getMessage();
+        }
+    }
+
+    @android.webkit.JavascriptInterface
     public boolean isFilePresent(String filePath) {
         File file = new File(filePath);
         return file.exists();
@@ -383,5 +435,42 @@ public class JsInterface {
                 //SHOW LOADING
             }
         });
+    }
+
+
+    @android.webkit.JavascriptInterface
+    public void callAPI(final String url, final String data, final String headers, final String callback) {
+        new AsyncTask() {
+            @Override
+            protected void onPostExecute(Object o) {
+                if (o != null) {
+                    if (((String) o).startsWith("ERR:")) {
+                        dynamicUI.addJsToWebView("window.callUICallback(\"" + callback + "\", 'error' ,\"" + o + "\");");
+                    } else {
+                        dynamicUI.addJsToWebView("window.callUICallback(\"" + callback + "\", " + o + ");");
+                    }
+
+                }
+            }
+
+            @Override
+            protected Object doInBackground(Object[] params) {
+                HashMap<String, String> h = new HashMap<String, String>();
+                try {
+                    JSONObject jsonHeaders = new JSONObject(headers);
+                    Iterator<?> keys = jsonHeaders.keys();
+                    while (keys.hasNext()) {
+                        String key = (String) keys.next();
+                        String value = jsonHeaders.getString(key);
+                        h.put(key, value);
+                    }
+                    return new String(RestClient.post(url, data, h));
+                } catch (JSONException j) {
+                    return "ERR: " + j.getLocalizedMessage();
+                } catch (Exception e) {
+                    return "ERR: " + e.getLocalizedMessage();
+                }
+            }
+        }.execute();
     }
 }
