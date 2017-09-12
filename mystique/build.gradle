@@ -91,8 +91,8 @@ android {
 
 dependencies {
     compile fileTree(include: ['*.jar'], dir: 'libs')
-    compile files('libs/glide-4.0.0.jar')
     compile 'com.android.support:support-v4:25.3.1'
+    compile group: 'com.github.bumptech.glide', name: 'glide', version: '4.0.0'
 }
 
 tasks.create(name: 'mavenPrep') << {
