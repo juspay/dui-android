@@ -26,8 +26,30 @@
 package in.juspay.mystique;
 
 /**
- * Created by sahebjot on 29/07/16.
+ * Created by sahebjot on 22/07/16.
  */
-public interface ErrorCallback {
-    void onError(String errorType, String errorMessage);
+public class DefaultLogger implements DuiLogger {
+    @Override
+    public void d(String tag, String message) {
+        if (tag != null && message != null) {
+        }
+    }
+
+    @Override
+    public void e(String tag, String message) {
+        if (tag != null && message != null) {
+        }
+    }
+
+    @Override
+    public void i(String tag, String message) {
+        if (tag != null && message != null) {
+        }
+    }
+
+    @Override
+    public void v(String tag, String message) {
+        if (tag != null && message != null) {
+        }
+    }
 }
